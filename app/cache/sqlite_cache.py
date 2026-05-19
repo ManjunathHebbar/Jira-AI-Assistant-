@@ -1,10 +1,12 @@
 import sqlite3
+import os
 
-DB_NAME = "database/jira_cache.db"
-
+DB_NAME = "cache/processed_tickets.db"
 
 
 def initialize_database():
+
+    os.makedirs("cache", exist_ok=True)
 
     connection = sqlite3.connect(DB_NAME)
 
@@ -13,45 +15,69 @@ def initialize_database():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS processed_tickets (
-            issue_key TEXT PRIMARY KEY
+            issue_key TEXT PRIMARY KEY,
+            content_hash TEXT
         )
         """
     )
 
     connection.commit()
+
     connection.close()
 
 
-
-def is_ticket_processed(issue_key):
+def should_process_ticket(
+    issue_key,
+    new_hash
+):
 
     connection = sqlite3.connect(DB_NAME)
 
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT issue_key FROM processed_tickets WHERE issue_key = ?",
+        """
+        SELECT content_hash
+        FROM processed_tickets
+        WHERE issue_key = ?
+        """,
         (issue_key,)
     )
 
-    result = cursor.fetchone()
+    row = cursor.fetchone()
 
     connection.close()
 
-    return result is not None
+    if not row:
+
+        return True
+
+    old_hash = row[0]
+
+    return old_hash != new_hash
 
 
-
-def save_processed_ticket(issue_key):
+def save_processed_ticket(
+    issue_key,
+    content_hash
+):
 
     connection = sqlite3.connect(DB_NAME)
 
     cursor = connection.cursor()
 
     cursor.execute(
-        "INSERT OR IGNORE INTO processed_tickets VALUES (?)",
-        (issue_key,)
+        """
+        INSERT OR REPLACE INTO processed_tickets
+        (issue_key, content_hash)
+        VALUES (?, ?)
+        """,
+        (
+            issue_key,
+            content_hash
+        )
     )
 
     connection.commit()
+
     connection.close()

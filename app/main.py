@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+import time
 
 from app.jira.fetcher import fetch_issue_by_key
 from app.jira.updater import update_custom_field
@@ -11,10 +12,11 @@ from app.ai.language_detector import detect_language
 
 from app.utils.extractor import extract_text
 from app.utils.logger import logger
+from app.utils.hash_util import generate_content_hash
 
 from app.cache.sqlite_cache import (
     initialize_database,
-    is_ticket_processed,
+    should_process_ticket,
     save_processed_ticket
 )
 
@@ -34,12 +36,18 @@ def home():
 @app.post("/jira-webhook")
 async def jira_webhook(request: Request):
 
+    start_time = time.time()
+
     try:
 
         raw_body = await request.body()
 
         print("\n" + "=" * 100)
         print("WEBHOOK RECEIVED")
+
+        # ==========================================
+        # EMPTY BODY CHECK
+        # ==========================================
 
         if not raw_body:
 
@@ -49,6 +57,10 @@ async def jira_webhook(request: Request):
                 "status": "ignored",
                 "reason": "empty body"
             }
+
+        # ==========================================
+        # JSON PARSE
+        # ==========================================
 
         try:
 
@@ -67,6 +79,10 @@ async def jira_webhook(request: Request):
 
         print(payload)
 
+        # ==========================================
+        # ISSUE VALIDATION
+        # ==========================================
+
         issue_data = payload.get("issue")
 
         if not issue_data:
@@ -78,42 +94,43 @@ async def jira_webhook(request: Request):
 
         issue_key = issue_data.get("key")
 
-        logger.info(f"Webhook received for {issue_key}")
-
         print(f"\nPROCESSING ISSUE: {issue_key}")
 
-        # ================= CACHE CHECK =================
+        logger.info(
+            f"Webhook received for {issue_key}"
+        )
 
-        if is_ticket_processed(issue_key):
-
-            logger.info(
-                f"Skipping already processed ticket {issue_key}"
-            )
-
-            return {
-                "status": "skipped",
-                "issue": issue_key
-            }
-
-        # ================= FETCH ISSUE =================
+        # ==========================================
+        # FETCH ISSUE
+        # ==========================================
 
         issue = fetch_issue_by_key(issue_key)
 
         fields = issue.get("fields", {})
 
+        # ==========================================
+        # TITLE
+        # ==========================================
+
         title = fields.get("summary", "")
+
+        # ==========================================
+        # DESCRIPTION
+        # ==========================================
 
         description = extract_text(
             fields.get("description", {})
         )
+
+        # ==========================================
+        # COMMENTS
+        # ==========================================
 
         comments = (
             fields
             .get("comment", {})
             .get("comments", [])
         )
-
-        # ================= COMMENTS =================
 
         all_comments = []
 
@@ -129,20 +146,60 @@ async def jira_webhook(request: Request):
 
         combined_comments = "\n".join(all_comments)
 
-        # ================= LANGUAGE =================
+        # ==========================================
+        # INPUT HASH
+        # ==========================================
+
+        input_content = f"""
+{title}
+{description}
+{combined_comments}
+"""
+
+        input_hash = generate_content_hash(
+            input_content
+        )
+
+        print("\nINPUT HASH:", input_hash)
+
+        # ==========================================
+        # CACHE CHECK
+        # ==========================================
+
+        if not should_process_ticket(
+            issue_key,
+            input_hash
+        ):
+
+            print(
+                "\nSKIPPING - INPUT UNCHANGED"
+            )
+
+            return {
+                "status": "skipped",
+                "issue": issue_key
+            }
+
+        # ==========================================
+        # LANGUAGE DETECTION
+        # ==========================================
 
         detected_language = detect_language(
             f"{title} {description}"
         )
 
-        # ================= TRANSLATION =================
+        # ==========================================
+        # TRANSLATION
+        # ==========================================
 
         translated_content = translate_content(
             title,
             description
         )
 
-        # ================= COMMENT SUMMARY =================
+        # ==========================================
+        # COMMENT SUMMARY
+        # ==========================================
 
         comments_summary = ""
 
@@ -152,7 +209,9 @@ async def jira_webhook(request: Request):
                 combined_comments
             )
 
-        # ================= AI SUMMARY =================
+        # ==========================================
+        # AI SUMMARY
+        # ==========================================
 
         ai_summary = generate_ai_summary(
             title,
@@ -160,7 +219,9 @@ async def jira_webhook(request: Request):
             combined_comments
         )
 
-        # ================= SENTIMENT =================
+        # ==========================================
+        # SENTIMENT
+        # ==========================================
 
         sentiment = analyze_sentiment(
             title,
@@ -168,7 +229,9 @@ async def jira_webhook(request: Request):
             combined_comments
         )
 
-        # ================= FINAL CONTENT =================
+        # ==========================================
+        # FINAL CONTENT
+        # ==========================================
 
         final_content = f"""
 🤖 AI ISSUE SUMMARY
@@ -211,6 +274,10 @@ async def jira_webhook(request: Request):
 ==================================================
 """
 
+        # ==========================================
+        # UPDATE JIRA
+        # ==========================================
+
         print("\nUPDATING JIRA FIELD...")
 
         update_custom_field(
@@ -218,7 +285,25 @@ async def jira_webhook(request: Request):
             final_content
         )
 
-        save_processed_ticket(issue_key)
+        # ==========================================
+        # SAVE HASH
+        # ==========================================
+
+        save_processed_ticket(
+            issue_key,
+            input_hash
+        )
+
+        end_time = time.time()
+
+        total_time = round(
+            end_time - start_time,
+            2
+        )
+
+        print(
+            f"\nPROCESSING TIME: {total_time} sec"
+        )
 
         logger.info(
             f"Successfully processed {issue_key}"
@@ -226,7 +311,8 @@ async def jira_webhook(request: Request):
 
         return {
             "status": "success",
-            "issue": issue_key
+            "issue": issue_key,
+            "processing_time": total_time
         }
 
     except Exception as e:
