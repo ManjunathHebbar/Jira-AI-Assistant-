@@ -1,0 +1,15 @@
+Analyze customer sentiment.
+
+Return ONLY one:
+- Calm
+- Frustrated
+- Escalating
+
+TITLE:
+{title}
+
+DESCRIPTION:
+{description}
+
+COMMENTS:
+{comments}

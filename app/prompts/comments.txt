@@ -1,0 +1,9 @@
+Summarize these Jira comments into short actionable points.
+
+Rules:
+- Keep it concise
+- Mention blockers/issues only
+- Return bullet points
+
+COMMENTS:
+{comments}

@@ -1,0 +1,12 @@
+Translate the following Jira issue content to English.
+
+Rules:
+- Keep technical meaning accurate
+- If already English, return as-is
+- Return clean professional English only
+
+TITLE:
+{title}
+
+DESCRIPTION:
+{description}
