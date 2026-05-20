@@ -1,0 +1,5 @@
+Payment API timeout usually happens when:
+
+1. Gateway API is slow
+2. Redis queue is overloaded
+3. Payment worker crashed

@@ -1,11 +1,6 @@
 import ollama
-import os
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
+from app.config import OLLAMA_MODEL
 
 
 def ask_ollama(prompt):

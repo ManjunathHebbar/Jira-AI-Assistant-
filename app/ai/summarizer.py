@@ -1,24 +1,40 @@
 from app.ai.ollama_client import ask_ollama
+from app.ai.rag import build_rag_context
 
 
-def generate_ai_summary(title, description, comments):
+def generate_ai_summary(
+    title,
+    description,
+    comments
+):
 
-    with open("app/prompts/summary.txt") as file:
+    rag_context = build_rag_context(
+        title,
+        description
+    )
+
+    with open(
+        "app/prompts/summary.txt"
+    ) as file:
+
         prompt_template = file.read()
 
     prompt = prompt_template.format(
         title=title,
         description=description,
-        comments=comments
+        comments=comments,
+        knowledge=rag_context
     )
 
     return ask_ollama(prompt)
 
 
-
 def summarize_comments(comments):
 
-    with open("app/prompts/comments.txt") as file:
+    with open(
+        "app/prompts/comments.txt"
+    ) as file:
+
         prompt_template = file.read()
 
     prompt = prompt_template.format(

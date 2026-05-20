@@ -1,10 +1,19 @@
 from langdetect import detect
+from langcodes import Language
 
 
 def detect_language(text):
 
     try:
-        return detect(text)
 
-    except:
-        return "unknown"
+        language_code = detect(text)
+
+        language_name = Language.get(
+            language_code
+        ).display_name()
+
+        return language_name
+
+    except Exception:
+
+        return "Unknown"

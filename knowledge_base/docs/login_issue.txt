@@ -1,0 +1,6 @@
+Login failures usually happen due to:
+
+1. Redis outage
+2. Expired JWT token
+3. Database connection timeout
+4. Authentication service deployment failure

@@ -4,3 +4,9 @@ requests
 ollama
 langdetect
 python-dotenv
+langcodes
+language_data
+chromadb
+sentence-transformers
+transformers
+torch

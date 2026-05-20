@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from starlette.concurrency import run_in_threadpool
 import time
 
 from app.jira.fetcher import fetch_issue_by_key
@@ -15,8 +16,9 @@ from app.utils.logger import logger
 from app.utils.hash_util import generate_content_hash
 
 from app.cache.sqlite_cache import (
+    claim_ticket_for_processing,
+    clear_processing_ticket,
     initialize_database,
-    should_process_ticket,
     save_processed_ticket
 )
 
@@ -37,6 +39,10 @@ def home():
 async def jira_webhook(request: Request):
 
     start_time = time.time()
+
+    issue_key = None
+
+    input_hash = None
 
     try:
 
@@ -94,6 +100,13 @@ async def jira_webhook(request: Request):
 
         issue_key = issue_data.get("key")
 
+        if not issue_key:
+
+            return {
+                "status": "failed",
+                "error": "No issue key found in payload"
+            }
+
         print(f"\nPROCESSING ISSUE: {issue_key}")
 
         logger.info(
@@ -104,7 +117,10 @@ async def jira_webhook(request: Request):
         # FETCH ISSUE
         # ==========================================
 
-        issue = fetch_issue_by_key(issue_key)
+        issue = await run_in_threadpool(
+            fetch_issue_by_key,
+            issue_key
+        )
 
         fields = issue.get("fields", {})
 
@@ -166,10 +182,13 @@ async def jira_webhook(request: Request):
         # CACHE CHECK
         # ==========================================
 
-        if not should_process_ticket(
+        should_process = await run_in_threadpool(
+            claim_ticket_for_processing,
             issue_key,
             input_hash
-        ):
+        )
+
+        if not should_process:
 
             print(
                 "\nSKIPPING - INPUT UNCHANGED"
@@ -192,7 +211,8 @@ async def jira_webhook(request: Request):
         # TRANSLATION
         # ==========================================
 
-        translated_content = translate_content(
+        translated_content = await run_in_threadpool(
+            translate_content,
             title,
             description
         )
@@ -205,7 +225,8 @@ async def jira_webhook(request: Request):
 
         if combined_comments.strip():
 
-            comments_summary = summarize_comments(
+            comments_summary = await run_in_threadpool(
+                summarize_comments,
                 combined_comments
             )
 
@@ -213,7 +234,8 @@ async def jira_webhook(request: Request):
         # AI SUMMARY
         # ==========================================
 
-        ai_summary = generate_ai_summary(
+        ai_summary = await run_in_threadpool(
+            generate_ai_summary,
             title,
             description,
             combined_comments
@@ -223,7 +245,8 @@ async def jira_webhook(request: Request):
         # SENTIMENT
         # ==========================================
 
-        sentiment = analyze_sentiment(
+        sentiment = await run_in_threadpool(
+            analyze_sentiment,
             title,
             description,
             combined_comments
@@ -280,7 +303,8 @@ async def jira_webhook(request: Request):
 
         print("\nUPDATING JIRA FIELD...")
 
-        update_custom_field(
+        await run_in_threadpool(
+            update_custom_field,
             issue_key,
             final_content
         )
@@ -289,7 +313,8 @@ async def jira_webhook(request: Request):
         # SAVE HASH
         # ==========================================
 
-        save_processed_ticket(
+        await run_in_threadpool(
+            save_processed_ticket,
             issue_key,
             input_hash
         )
@@ -316,6 +341,14 @@ async def jira_webhook(request: Request):
         }
 
     except Exception as e:
+
+        if issue_key and input_hash:
+
+            await run_in_threadpool(
+                clear_processing_ticket,
+                issue_key,
+                input_hash
+            )
 
         logger.error(str(e))
 

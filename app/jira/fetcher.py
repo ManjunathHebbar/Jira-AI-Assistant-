@@ -1,18 +1,22 @@
 import requests
-import os
-
-from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
-load_dotenv()
-
-JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
-EMAIL = os.getenv("EMAIL")
-API_TOKEN = os.getenv("API_TOKEN")
+from app.config import (
+    API_TOKEN,
+    EMAIL,
+    JIRA_DOMAIN,
+    require_settings
+)
 
 
 
 def fetch_issue_by_key(issue_key):
+
+    require_settings(
+        "JIRA_DOMAIN",
+        "EMAIL",
+        "API_TOKEN"
+    )
 
     url = f"{JIRA_DOMAIN}/rest/api/3/issue/{issue_key}"
 
@@ -21,7 +25,19 @@ def fetch_issue_by_key(issue_key):
         auth=HTTPBasicAuth(EMAIL, API_TOKEN),
         headers={
             "Accept": "application/json"
-        }
+        },
+        timeout=30
     )
+
+    try:
+
+        response.raise_for_status()
+
+    except requests.HTTPError as error:
+
+        raise RuntimeError(
+            f"Failed to fetch Jira issue {issue_key}: "
+            f"{response.status_code} {response.text}"
+        ) from error
 
     return response.json()

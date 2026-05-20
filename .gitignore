@@ -6,6 +6,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Compiled extensions
+*.so
+
 # =========================
 # Virtual Environment
 # =========================
@@ -13,12 +16,16 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv/
 
 # =========================
 # Environment Variables
 # =========================
 
 .env
+.env.local
+.env.dev
+.env.prod
 
 # =========================
 # SQLite Database
@@ -26,12 +33,21 @@ ENV/
 
 *.db
 *.sqlite3
+tickets.db
+
+# =========================
+# ChromaDB / Vector DB
+# =========================
+
+chroma_db/
+chromadb/
 
 # =========================
 # Logs
 # =========================
 
 *.log
+logs/
 
 # =========================
 # macOS
@@ -64,6 +80,7 @@ ngrok.yml
 .coverage
 htmlcov/
 .pytest_cache/
+.mypy_cache/
 
 # =========================
 # Build files
@@ -72,6 +89,7 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+.eggs/
 
 # =========================
 # Cache
@@ -89,12 +107,50 @@ ollama.log
 # Local runtime files
 # =========================
 
-tickets.db
+*.pid
 
 # =========================
-# Secrets
+# Secrets / Certificates
 # =========================
 
 *.pem
 *.key
 *.crt
+
+# =========================
+# Jupyter
+# =========================
+
+.ipynb_checkpoints/
+
+# =========================
+# OS Generated Files
+# =========================
+
+Thumbs.db
+
+# =========================
+# Temporary Files
+# =========================
+
+*.tmp
+*.temp
+
+# =========================
+# AI Models / Large Files
+# =========================
+
+models/
+hf_cache/
+
+# =========================
+# Sentence Transformers Cache
+# =========================
+
+sentence_transformers/
+
+# =========================
+# HuggingFace Cache
+# =========================
+
+.huggingface/

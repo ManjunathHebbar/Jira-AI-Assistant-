@@ -1,0 +1,180 @@
+========================================
+TITLE: Login Loader Missing
+========================================
+
+Problem:
+User clicks login button but no loader appears.
+Page looks frozen during authentication.
+
+Root Cause:
+Frontend loading state was not implemented correctly.
+
+Fix:
+- Added isLoading state
+- Disabled login button during API call
+- Added spinner component
+- Added proper async error handling
+
+Keywords:
+login, loader, spinner, authentication, frontend, react
+
+
+========================================
+TITLE: Jira Webhook Infinite Loop
+========================================
+
+Problem:
+Webhook continuously triggers itself after Jira issue update.
+
+Root Cause:
+Updating Jira issue from API generated another webhook event.
+
+Fix:
+- Added input hash caching
+- Skipped processing when input unchanged
+- Ignored self-generated updates
+
+Keywords:
+jira, webhook, loop, duplicate processing, cache
+
+
+========================================
+TITLE: JSON Decode Error In FastAPI
+========================================
+
+Problem:
+Webhook endpoint crashes with JSONDecodeError.
+
+Root Cause:
+request.json() called on empty request body.
+
+Fix:
+- Added raw_body validation
+- Ignored empty webhook payloads
+- Added JSON parsing try/catch
+
+Keywords:
+fastapi, jsondecodeerror, webhook, request body
+
+
+========================================
+TITLE: SQLite Database Locked
+========================================
+
+Problem:
+SQLite database becomes locked during concurrent webhook processing.
+
+Root Cause:
+Multiple simultaneous writes to SQLite.
+
+Fix:
+- Added proper connection closing
+- Added timeout handling
+- Reduced long transactions
+
+Keywords:
+sqlite, database locked, concurrency
+
+
+========================================
+TITLE: Translation Duplicate Processing
+========================================
+
+Problem:
+Same Jira ticket processed multiple times unnecessarily.
+
+Root Cause:
+No content change detection before processing.
+
+Fix:
+- Added MD5 hash comparison
+- Skip processing when ticket content unchanged
+
+Keywords:
+translation, cache, duplicate processing, md5
+
+
+========================================
+TITLE: Language Detection Returning Unknown
+========================================
+
+Problem:
+Language detector returns unknown for English text.
+
+Root Cause:
+language_data dependency missing for langcodes.
+
+Fix:
+Installed:
+pip install "langcodes[data]"
+
+Keywords:
+language detection, langcodes, langdetect
+
+
+========================================
+TITLE: Jira API 204 Response
+========================================
+
+Problem:
+Jira API returns 204 after update request.
+
+Explanation:
+204 means update succeeded successfully with no response body.
+
+Keywords:
+jira api, 204, update success
+
+
+========================================
+TITLE: SCSS Missing In Production
+========================================
+
+Problem:
+SCSS styles work locally but fail after deployment.
+
+Root Cause:
+Global SCSS file not imported in app entrypoint.
+
+Fix:
+Imported global.scss in root application file.
+
+Keywords:
+scss, production, css, webpack
+
+
+========================================
+TITLE: React Infinite Re-render
+========================================
+
+Problem:
+React component continuously re-renders.
+
+Root Cause:
+State updated inside useEffect dependency cycle.
+
+Fix:
+- Fixed dependency array
+- Memoized callbacks
+- Prevented recursive state updates
+
+Keywords:
+react, rerender, useeffect, infinite loop
+
+
+========================================
+TITLE: Ngrok Webhook Failure
+========================================
+
+Problem:
+Jira cloud unable to access local FastAPI server.
+
+Root Cause:
+localhost not publicly accessible.
+
+Fix:
+- Configured ngrok tunnel
+- Updated Jira webhook URL
+
+Keywords:
+ngrok, webhook, jira cloud, localhost

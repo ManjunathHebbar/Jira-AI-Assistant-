@@ -161,7 +161,7 @@ Extract:
    - Description
    - Comments
         ↓
-Knowledge Base Retrieval (RAG)
+Knowledge Base Retrieval (RAG from ChromaDB)
         ↓
 Ollama generates:
    - AI Summary
@@ -171,7 +171,7 @@ Ollama generates:
         ↓
 Update Jira Custom Field
         ↓
-Store Hash in SQLite
+Store Hash in SQLite after successful Jira update
 ```
 
 ---
@@ -211,10 +211,15 @@ Jira-api/
 │   └── main.py
 │
 ├── knowledge_base/
-│   ├── Jira_kb.txt
+│   ├── docs/
+│   │   ├── login_issue.txt
+│   │   └── payment_issue.txt
+│   ├── jira_kb.txt
+│   ├── build_index.py
 │   ├── ingest.py
-│   ├── vector_store.py
-│   └── chroma_db/
+│   └── vector_store.py
+│
+├── chroma_db/
 │
 ├── .env
 ├── requirements.txt
@@ -320,7 +325,7 @@ pip3 install -r requirements.txt
 
 Download:
 
-:contentReference[oaicite:0]{index=0}
+https://ollama.com/download
 
 Verify:
 
@@ -338,7 +343,23 @@ ollama pull mistral
 
 ---
 
-# Step 6 — Start Ollama
+# Step 6 — Download Embedding Model
+
+The knowledge base uses `sentence-transformers/all-MiniLM-L6-v2`.
+Download it once before running in fully local mode:
+
+```bash
+python3 - <<'PY'
+from sentence_transformers import SentenceTransformer
+SentenceTransformer("all-MiniLM-L6-v2")
+PY
+```
+
+After this, the app loads the embedding model from the local cache.
+
+---
+
+# Step 7 — Start Ollama
 
 ```bash
 ollama serve
@@ -346,7 +367,7 @@ ollama serve
 
 ---
 
-# Step 7 — Configure Environment Variables
+# Step 8 — Configure Environment Variables
 
 Create `.env`
 
@@ -364,13 +385,15 @@ CUSTOM_FIELD_ID=customfield_10119
 OLLAMA_MODEL=mistral
 ```
 
+The app also accepts `JIRA_EMAIL` and `JIRA_API_TOKEN` as aliases for `EMAIL` and `API_TOKEN`.
+
 ---
 
-# Step 8 — Generate Jira API Token
+# Step 9 — Generate Jira API Token
 
 Open:
 
-:contentReference[oaicite:1]{index=1}
+https://id.atlassian.com/manage-profile/security/api-tokens
 
 Steps:
 
@@ -380,7 +403,24 @@ Steps:
 
 ---
 
-# Step 9 — Start FastAPI Server
+# Step 10 — Build Knowledge Base Index
+
+Run this after editing `knowledge_base/jira_kb.txt` or files under `knowledge_base/docs/`:
+
+```bash
+python3 knowledge_base/ingest.py
+```
+
+Expected:
+
+```text
+Knowledge Base Ingested Successfully
+Collection: jira_knowledge
+```
+
+---
+
+# Step 11 — Start FastAPI Server
 
 ```bash
 python3 -m uvicorn app.main:app --reload
@@ -394,11 +434,11 @@ Uvicorn running on http://127.0.0.1:8000
 
 ---
 
-# Step 10 — Install ngrok
+# Step 12 — Install ngrok
 
 Download:
 
-:contentReference[oaicite:2]{index=2}
+https://ngrok.com/download
 
 Authenticate:
 
@@ -408,7 +448,7 @@ ngrok config add-authtoken YOUR_TOKEN
 
 ---
 
-# Step 11 — Start ngrok Tunnel
+# Step 13 — Start ngrok Tunnel
 
 ```bash
 ngrok http 8000
@@ -507,7 +547,13 @@ Paste:
 Edit:
 
 ```text
-knowledge_base/Jira_kb.txt
+knowledge_base/jira_kb.txt
+```
+
+You can also add smaller topic files under:
+
+```text
+knowledge_base/docs/
 ```
 
 Example:
@@ -533,7 +579,9 @@ python3 knowledge_base/ingest.py
 Expected:
 
 ```text
-Knowledge Base Indexed Successfully
+Knowledge Base Ingested Successfully
+Database Path: .../Jira-api/chroma_db
+Collection: jira_knowledge
 ```
 
 ---
@@ -612,6 +660,19 @@ Die Datenbankverbindung schlägt fehl.
 - Internal KB support
 - Enterprise safe
 - GDPR friendly
+- Jira update errors are not cached as successful processing
+
+---
+
+# 🧯 Runtime Behavior
+
+- Jira API fetch/update calls use a 30 second timeout.
+- Failed Jira fetch/update responses raise clear errors.
+- The processed-ticket hash is saved only after Jira update succeeds.
+- Duplicate webhook processing is prevented with SQLite processing locks.
+- Stale processing locks expire after 30 minutes so interrupted work can retry.
+- Blocking Jira, Ollama, ChromaDB, and SQLite work runs in FastAPI's threadpool.
+- Runtime cache is stored at `cache/processed_tickets.db`.
 
 ---
 
@@ -643,6 +704,8 @@ language_data
 ollama
 chromadb
 sentence-transformers
+transformers
+torch
 ```
 
 ---
@@ -660,7 +723,7 @@ venv/
 .vscode/
 .idea/
 chroma_db/
-tickets.db
+cache/
 ```
 
 ---
