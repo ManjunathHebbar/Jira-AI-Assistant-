@@ -1,11 +1,13 @@
 # Jira AI Assistant 🚀
 
-An AI-powered Jira automation system that automatically:
+An AI-powered Jira automation platform that automatically:
 
 - Translates multilingual Jira tickets
-- Generates AI issue summaries
+- Generates AI-powered issue summaries
 - Detects customer sentiment
-- Summarizes comments
+- Summarizes Jira comments
+- Prevents duplicate processing
+- Supports Knowledge Base (RAG)
 - Updates Jira tickets automatically
 - Runs fully locally using Ollama (No paid APIs)
 
@@ -15,52 +17,61 @@ Built using:
 - FastAPI
 - Ollama
 - SQLite
+- ChromaDB
+- Sentence Transformers
 - Jira REST API
 - ngrok
 
 ---
 
-# Features
-
-## ✅ AI Ticket Summarization
-
-Automatically generates:
-
-- English title
-- Short summary
-- Root cause
-- Suggested fix
-- Priority
+# 🚀 Features
 
 ---
 
-## ✅ Multilingual Translation
+# ✅ AI Ticket Summarization
+
+Automatically generates:
+
+- English Title
+- Business Summary
+- Root Cause
+- Suggested Fix
+- Priority
+- Action Items
+
+---
+
+# ✅ Multilingual Translation
 
 Supports tickets written in:
 
-- Chinese
-- French
-- German
 - Hindi
 - Japanese
+- Chinese
+- German
+- French
 - Spanish
+- Korean
+- Portuguese
+- Arabic
 - etc.
 
 Automatically translates them into English.
 
 ---
 
-## ✅ Comment Summarization
+# ✅ Comment Summarization
 
 Long Jira discussions become:
 
 - concise
 - actionable
-- easy to handoff
+- developer-friendly
+- handoff-ready
 
 ---
 
-## ✅ Sentiment Analysis
+# ✅ Sentiment Analysis
 
 Detects customer tone:
 
@@ -72,26 +83,69 @@ Detects customer tone:
 
 ---
 
-## ✅ Fully Local AI (Privacy Safe)
+# ✅ Knowledge Base (RAG)
+
+The system now supports:
+
+- internal troubleshooting knowledge
+- historical issue patterns
+- known fixes
+- reusable production learnings
+
+The AI uses your internal KB while generating summaries.
+
+Example:
+
+If a Jira ticket mentions:
+
+```text
+Login issue with expired token
+```
+
+The AI can automatically relate it to:
+
+```text
+Login failures are usually caused by expired JWT tokens
+```
+
+from your knowledge base.
+
+---
+
+# ✅ Smart Duplicate Prevention
+
+Avoids infinite Jira webhook loops using:
+
+- input hashing
+- SQLite cache
+- change detection
+
+Only processes tickets when actual content changes.
+
+---
+
+# ✅ Fully Local AI (Privacy Safe)
 
 Uses:
 
 - Ollama
-- Mistral model
+- Mistral LLM
 
-No OpenAI API required.
+No OpenAI APIs required.
 
-No external AI calls.
+No external AI providers.
 
 Perfect for:
 
 - enterprise
-- on-prem
-- internal secure systems
+- banking
+- healthcare
+- on-prem systems
+- secure environments
 
 ---
 
-# Architecture
+# 🏗️ System Architecture
 
 ```text
 Jira Ticket Updated
@@ -100,28 +154,39 @@ Jira Automation Rule
         ↓
 Webhook hits FastAPI
         ↓
-FastAPI fetches Jira issue
+Fetch Jira Ticket
+        ↓
+Extract:
+   - Summary
+   - Description
+   - Comments
+        ↓
+Knowledge Base Retrieval (RAG)
         ↓
 Ollama generates:
-   - Summary
+   - AI Summary
    - Translation
    - Sentiment
-   - Comment summary
+   - Comment Summary
         ↓
-Jira ticket updated automatically
+Update Jira Custom Field
+        ↓
+Store Hash in SQLite
 ```
 
 ---
 
-# Project Structure
+# 📁 Project Structure
 
 ```text
 Jira-api/
 │
 ├── app/
+│   │
 │   ├── ai/
 │   │   ├── language_detector.py
 │   │   ├── ollama_client.py
+│   │   ├── rag.py
 │   │   ├── sentiment.py
 │   │   ├── summarizer.py
 │   │   └── translator.py
@@ -134,10 +199,10 @@ Jira-api/
 │   │   └── updater.py
 │   │
 │   ├── prompts/
+│   │   ├── comments.txt
 │   │   ├── sentiment.txt
 │   │   ├── summary.txt
-│   │   ├── translation.txt
-│   │   └── comments.txt
+│   │   └── translation.txt
 │   │
 │   ├── utils/
 │   │   ├── extractor.py
@@ -145,63 +210,105 @@ Jira-api/
 │   │
 │   └── main.py
 │
+├── knowledge_base/
+│   ├── Jira_kb.txt
+│   ├── ingest.py
+│   ├── vector_store.py
+│   └── chroma_db/
+│
 ├── .env
 ├── requirements.txt
-├── .gitignore
-└── README.md
+├── README.md
+└── .gitignore
 ```
 
 ---
 
-# Deployment Options
-
-## ✅ On-premises
-
-Runs on:
-
-- MacBook
-- Linux
-- Windows
-
-No cloud dependency required.
+# 🧠 Knowledge Base (RAG)
 
 ---
 
-## ✅ Private Cloud
+# What is RAG?
 
-Supports deployment on:
+RAG = Retrieval Augmented Generation
 
-- AWS
-- Azure
-- GCP
-
----
-
-## ✅ Kubernetes
-
-Can run inside customer Kubernetes cluster:
-
-- AKS
-- EKS
-- GKE
-- OpenShift
+Instead of relying only on the LLM knowledge,
+the system retrieves relevant internal knowledge before generating the response.
 
 ---
 
-# Prerequisites
+# Example
 
-Install:
+Knowledge Base:
 
-- Python 3.12+
-- Ollama
-- ngrok
-- Jira Cloud account
+```text
+Webhook infinite loops happen when Jira updates trigger webhook again.
+```
+
+Jira Ticket:
+
+```text
+Webhook repeatedly processing same ticket
+```
+
+AI automatically uses KB context while generating summary.
 
 ---
 
-# Step 1 — Install Python Dependencies
+# Current Knowledge Base Example
 
-Inside project root:
+```text
+Login failures are usually caused by:
+- expired JWT tokens
+- invalid credentials
+- authentication middleware issues
+
+Webhook infinite loops happen when Jira updates trigger the webhook again.
+
+A Jira API response code 204 means update success.
+```
+
+---
+
+# 🛠️ Installation Guide
+
+---
+
+# Step 1 — Clone Project
+
+```bash
+git clone <your_repo_url>
+```
+
+```bash
+cd Jira-api
+```
+
+---
+
+# Step 2 — Create Virtual Environment
+
+```bash
+python3 -m venv venv
+```
+
+Activate:
+
+Mac/Linux:
+
+```bash
+source venv/bin/activate
+```
+
+Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+---
+
+# Step 3 — Install Dependencies
 
 ```bash
 pip3 install -r requirements.txt
@@ -209,11 +316,11 @@ pip3 install -r requirements.txt
 
 ---
 
-# Step 2 — Install Ollama
+# Step 4 — Install Ollama
 
-Install from:
+Download:
 
-https://ollama.com/download
+:contentReference[oaicite:0]{index=0}
 
 Verify:
 
@@ -223,9 +330,7 @@ ollama --version
 
 ---
 
-# Step 3 — Download AI Model
-
-Pull Mistral model:
+# Step 5 — Pull AI Model
 
 ```bash
 ollama pull mistral
@@ -233,27 +338,67 @@ ollama pull mistral
 
 ---
 
-# Step 4 — Start Ollama
+# Step 6 — Start Ollama
 
 ```bash
 ollama serve
 ```
 
-If you see:
+---
 
-```text
-address already in use
+# Step 7 — Configure Environment Variables
+
+Create `.env`
+
+```env
+JIRA_DOMAIN=https://your-domain.atlassian.net
+
+EMAIL=your-email@gmail.com
+
+API_TOKEN=your-jira-api-token
+
+PROJECT_KEY=MS
+
+CUSTOM_FIELD_ID=customfield_10119
+
+OLLAMA_MODEL=mistral
 ```
-
-That means Ollama is already running.
 
 ---
 
-# Step 5 — Install ngrok
+# Step 8 — Generate Jira API Token
 
-Install from:
+Open:
 
-https://ngrok.com/download
+:contentReference[oaicite:1]{index=1}
+
+Steps:
+
+1. Create API Token
+2. Copy token
+3. Add token into `.env`
+
+---
+
+# Step 9 — Start FastAPI Server
+
+```bash
+python3 -m uvicorn app.main:app --reload
+```
+
+Expected:
+
+```text
+Uvicorn running on http://127.0.0.1:8000
+```
+
+---
+
+# Step 10 — Install ngrok
+
+Download:
+
+:contentReference[oaicite:2]{index=2}
 
 Authenticate:
 
@@ -263,23 +408,7 @@ ngrok config add-authtoken YOUR_TOKEN
 
 ---
 
-# Step 6 — Start FastAPI Server
-
-```bash
-python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Expected:
-
-```text
-Uvicorn running on http://0.0.0.0:8000
-```
-
----
-
-# Step 7 — Start ngrok Tunnel
-
-Open new terminal:
+# Step 11 — Start ngrok Tunnel
 
 ```bash
 ngrok http 8000
@@ -291,23 +420,25 @@ Example:
 Forwarding https://abc123.ngrok-free.dev -> http://localhost:8000
 ```
 
-Copy this URL.
+Copy the HTTPS URL.
 
 ---
 
-# Step 8 — Configure Jira Automation
-
-Open Jira Automation:
-
-https://YOUR_DOMAIN.atlassian.net/jira/settings/automation
+# ⚙️ Jira Automation Setup
 
 ---
 
-## Create Rule
+# Create Jira Automation Rule
 
-### Trigger
+Open:
 
-Use:
+```text
+Project Settings → Automation
+```
+
+---
+
+# Trigger
 
 ```text
 Issue Updated
@@ -315,31 +446,23 @@ Issue Updated
 
 ---
 
-## Action
-
-Choose:
+# Action
 
 ```text
-Send web request
+Send Web Request
 ```
 
 ---
 
-## Webhook URL
+# URL
 
 ```text
 https://YOUR_NGROK_URL.ngrok-free.dev/jira-webhook
 ```
 
-Example:
-
-```text
-https://abc123.ngrok-free.dev/jira-webhook
-```
-
 ---
 
-## HTTP Method
+# HTTP Method
 
 ```text
 POST
@@ -347,7 +470,7 @@ POST
 
 ---
 
-## Headers
+# Headers
 
 | Key | Value |
 |------|------|
@@ -355,7 +478,7 @@ POST
 
 ---
 
-## Request Body
+# Request Body
 
 Choose:
 
@@ -375,139 +498,156 @@ Paste:
 
 ---
 
-# Step 9 — Turn Rule ON
-
-Enable automation rule.
+# 🧠 Knowledge Base Setup
 
 ---
 
-# Step 10 — Test the System
+# Step 1 — Add KB Data
 
-Edit any Jira ticket.
+Edit:
+
+```text
+knowledge_base/Jira_kb.txt
+```
 
 Example:
 
-- change summary
-- add comment
-- update description
-
-Terminal should show:
-
 ```text
-WEBHOOK RECEIVED
-PROCESSING ISSUE: MS-1
-UPDATING JIRA FIELD...
-Successfully processed
+Login failures are usually caused by expired JWT tokens.
+
+Webhook infinite loops happen when Jira updates trigger the webhook again.
+
+Loader issues may happen because frontend state never updates.
 ```
 
 ---
 
-# Jira AI Output Example
+# Step 2 — Generate Vector Database
+
+Run:
+
+```bash
+python3 knowledge_base/ingest.py
+```
+
+Expected:
+
+```text
+Knowledge Base Indexed Successfully
+```
+
+---
+
+# Step 3 — Restart FastAPI
+
+```bash
+python3 -m uvicorn app.main:app --reload
+```
+
+---
+
+# 🔥 Example AI Output
 
 ```text
 🤖 AI ISSUE SUMMARY
 
-1. English Title
-2. Short Summary
-3. Root Cause
-4. Priority
-5. Suggested Fix
+Title:
+User Login Failure
 
-🌍 ENGLISH TITLE & DESCRIPTION
+Summary:
+Users unable to login due to expired JWT tokens.
 
-Translated English content
+Root Cause:
+Authentication token validation failure.
 
-😊 CUSTOMER SENTIMENT
+Suggested Fix:
+Refresh token handling middleware.
 
-Frustrated
-
-💬 COMMENT SUMMARY
-
-- Login failing
-- Token expired
-- User blocked
+Priority:
+High
 ```
 
 ---
 
-# Environment Variables (.env)
-
-```env
-JIRA_DOMAIN=https://your-domain.atlassian.net
-
-EMAIL=your-email@gmail.com
-
-API_TOKEN=your-jira-api-token
-
-PROJECT_KEY=MS
-
-CUSTOM_FIELD_ID=customfield_10119
-
-OLLAMA_MODEL=mistral
-```
+# 🧪 Sample Multilingual Tickets
 
 ---
 
-# Generate Jira API Token
-
-Open:
-
-https://id.atlassian.com/manage-profile/security/api-tokens
-
-Steps:
-
-1. Create API Token
-2. Copy token
-3. Add into `.env`
-
----
-
-# Custom Jira Field
-
-You need a Jira custom field to store AI summaries.
-
-Example:
+# Hindi Ticket
 
 ```text
-customfield_10119
+उपयोगकर्ता लॉगिन नहीं कर पा रहा है।
 ```
 
 ---
 
-# How to Find Custom Field ID
-
-```bash
-curl --request GET \
---url "https://YOUR_DOMAIN.atlassian.net/rest/api/3/issue/MS-1" \
---user "EMAIL:API_TOKEN"
-```
-
-Search:
+# Japanese Ticket
 
 ```text
-customfield_
+ログイン時にローダーが表示されません。
 ```
 
 ---
 
-# SQLite Cache
-
-Used to avoid duplicate processing.
-
-Database:
+# French Ticket
 
 ```text
-tickets.db
+Le webhook Jira boucle indéfiniment.
 ```
-
-Stores:
-
-- processed ticket IDs
-- timestamps
 
 ---
 
-# .gitignore
+# German Ticket
+
+```text
+Die Datenbankverbindung schlägt fehl.
+```
+
+---
+
+# 🔐 Security
+
+- Fully local AI
+- No external LLM APIs
+- Internal KB support
+- Enterprise safe
+- GDPR friendly
+
+---
+
+# 🧰 Tech Stack
+
+| Technology | Usage |
+|------------|-------|
+| FastAPI | Backend |
+| Ollama | Local LLM |
+| Mistral | AI Model |
+| ChromaDB | Vector Database |
+| Sentence Transformers | Embeddings |
+| SQLite | Cache |
+| Jira REST API | Jira Integration |
+| ngrok | Public Tunnel |
+
+---
+
+# 📦 requirements.txt
+
+```txt
+fastapi
+uvicorn
+requests
+python-dotenv
+langdetect
+langcodes
+language_data
+ollama
+chromadb
+sentence-transformers
+```
+
+---
+
+# 📄 .gitignore
 
 ```gitignore
 __pycache__/
@@ -519,105 +659,19 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+chroma_db/
 tickets.db
 ```
 
 ---
 
-# Troubleshooting
-
----
-
-## 1. Ollama not running
-
-Error:
-
-```text
-connection refused
-```
-
-Fix:
-
-```bash
-ollama serve
-```
-
----
-
-## 2. ngrok not found
-
-Install ngrok:
-
-https://ngrok.com/download
-
----
-
-## 3. Jira webhook empty body
-
-Fix Jira automation body:
-
-```json
-{
-  "issue": {
-    "key": "{{issue.key}}"
-  }
-}
-```
-
----
-
-## 4. Module not found
-
-Install dependencies:
-
-```bash
-pip3 install -r requirements.txt
-```
-
----
-
-## 5. SQLite unable to open database
-
-Create cache folder:
-
-```bash
-mkdir -p app/cache
-```
-
----
-
-# Future Improvements
-
-- RAG support
-- Vector database
-- Slack integration
-- Email summarization
-- Auto-priority detection
-- Duplicate issue detection
-- AI root-cause clustering
-- Multi-agent orchestration
-- Voice ticket summaries
-
----
-
-# Tech Stack
-
-| Technology | Usage |
-|------------|-------|
-| FastAPI | Backend API |
-| Ollama | Local LLM |
-| Mistral | AI Model |
-| Jira REST API | Ticket integration |
-| SQLite | Cache |
-| ngrok | Public webhook tunnel |
-
----
-
-# Security
-
-- No external AI APIs
-- Fully local AI
-- Ticket data stays internal
-- Supports enterprise privacy requirements
+# 👨‍💻 Author
 
 AI-Powered Jira Automation System 🚀
+
+Built with:
+- FastAPI
+- Ollama
+- RAG
+- Local AI
+- Jira Automation
