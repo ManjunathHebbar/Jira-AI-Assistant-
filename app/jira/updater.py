@@ -1,70 +1,47 @@
 import requests
+import os
+
+from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
-from app.config import (
-    API_TOKEN,
-    CUSTOM_FIELD_ID,
-    EMAIL,
-    JIRA_DOMAIN,
-    require_settings
-)
+load_dotenv()
+
+JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
+EMAIL = os.getenv("EMAIL")
+API_TOKEN = os.getenv("API_TOKEN")
 
 
+def add_ai_comment(issue_key, adf_content):
 
-def update_custom_field(issue_key, content):
-
-    require_settings(
-        "JIRA_DOMAIN",
-        "EMAIL",
-        "API_TOKEN",
-        "CUSTOM_FIELD_ID"
+    url = (
+        f"{JIRA_DOMAIN}"
+        f"/rest/api/3/issue/"
+        f"{issue_key}/comment"
     )
 
-    url = f"{JIRA_DOMAIN}/rest/api/3/issue/{issue_key}"
-
     payload = {
-        "fields": {
-            CUSTOM_FIELD_ID: {
-                "type": "doc",
-                "version": 1,
-                "content": [
-                    {
-                        "type": "paragraph",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": str(content)[:30000]
-                            }
-                        ]
-                    }
-                ]
-            }
-        }
+        "body": adf_content
     }
 
-    response = requests.put(
+    response = requests.post(
         url,
-        auth=HTTPBasicAuth(EMAIL, API_TOKEN),
+        auth=HTTPBasicAuth(
+            EMAIL,
+            API_TOKEN
+        ),
         headers={
             "Accept": "application/json",
             "Content-Type": "application/json"
         },
-        json=payload,
-        timeout=30
+        json=payload
     )
 
-    print("UPDATE STATUS:", response.status_code)
-    print("UPDATE RESPONSE:", response.text)
+    print(
+        "COMMENT STATUS:",
+        response.status_code
+    )
 
-    try:
-
-        response.raise_for_status()
-
-    except requests.HTTPError as error:
-
-        raise RuntimeError(
-            f"Failed to update Jira issue {issue_key}: "
-            f"{response.status_code} {response.text}"
-        ) from error
-
-    return response
+    print(
+        "COMMENT RESPONSE:",
+        response.text
+    )
