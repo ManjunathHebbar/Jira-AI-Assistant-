@@ -668,7 +668,11 @@ Die Datenbankverbindung schlägt fehl.
 
 - Jira API fetch/update calls use a 30 second timeout.
 - Failed Jira fetch/update responses raise clear errors.
-- The processed-ticket hash is saved only after Jira update succeeds.
+- The AI custom field is updated with temporary processing states while work is running.
+- Processing states use Jira ADF panels, headings, and progress bullets.
+- The temporary processing state is replaced by the final AI summary when generation completes.
+- If generation fails after the ticket is claimed, the custom field is updated with a failed state.
+- The processed-ticket hash is saved after the final summary update succeeds; failed-state updates are also cached to prevent Jira self-trigger loops.
 - Duplicate webhook processing is prevented with SQLite processing locks.
 - Stale processing locks expire after 30 minutes so interrupted work can retry.
 - Blocking Jira, Ollama, ChromaDB, and SQLite work runs in FastAPI's threadpool.

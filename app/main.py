@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request
+from starlette.concurrency import run_in_threadpool
+import time
 
 from app.jira.fetcher import fetch_issue_by_key
-from app.jira.updater import add_ai_comment
+from app.jira.updater import update_custom_field
 
 from app.ai.translator import translate_content
 from app.ai.summarizer import generate_ai_summary
@@ -10,20 +12,21 @@ from app.ai.sentiment import analyze_sentiment
 from app.ai.language_detector import detect_language
 
 from app.utils.extractor import extract_text
+from app.utils.hash_util import generate_content_hash
 from app.utils.logger import logger
 
 from app.cache.sqlite_cache import (
+    claim_ticket_for_processing,
+    clear_processing_ticket,
     initialize_database,
-    is_input_processed,
-    save_processed_input
+    save_processed_ticket
 )
 
 from app.jira.adf_builder import (
-    build_ai_summary_adf
+    build_ai_summary_adf,
+    build_failed_adf,
+    build_processing_adf
 )
-
-import hashlib
-import time
 
 app = FastAPI()
 
@@ -38,10 +41,30 @@ def home():
     }
 
 
+async def update_processing_state(
+    issue_key,
+    current_step,
+    completed_steps=None
+):
+
+    await run_in_threadpool(
+        update_custom_field,
+        issue_key,
+        build_processing_adf(
+            current_step=current_step,
+            completed_steps=completed_steps
+        )
+    )
+
+
 @app.post("/jira-webhook")
 async def jira_webhook(request: Request):
 
     start_time = time.time()
+
+    issue_key = None
+
+    input_hash = None
 
     try:
 
@@ -49,10 +72,6 @@ async def jira_webhook(request: Request):
 
         print("\n" + "=" * 100)
         print("WEBHOOK RECEIVED")
-
-        # ==================================================
-        # EMPTY BODY CHECK
-        # ==================================================
 
         if not raw_body:
 
@@ -63,10 +82,6 @@ async def jira_webhook(request: Request):
                 "reason": "empty body"
             }
 
-        # ==================================================
-        # JSON PARSE
-        # ==================================================
-
         try:
 
             payload = await request.json()
@@ -74,10 +89,7 @@ async def jira_webhook(request: Request):
         except Exception:
 
             print("Invalid JSON payload")
-
-            print(
-                raw_body.decode("utf-8")
-            )
+            print(raw_body.decode("utf-8"))
 
             return {
                 "status": "ignored",
@@ -85,10 +97,6 @@ async def jira_webhook(request: Request):
             }
 
         print(payload)
-
-        # ==================================================
-        # ISSUE VALIDATION
-        # ==================================================
 
         issue_data = payload.get("issue")
 
@@ -101,32 +109,30 @@ async def jira_webhook(request: Request):
 
         issue_key = issue_data.get("key")
 
+        if not issue_key:
+
+            return {
+                "status": "failed",
+                "error": "No issue key found in payload"
+            }
+
+        print(f"\nPROCESSING ISSUE: {issue_key}")
+
         logger.info(
             f"Webhook received for {issue_key}"
         )
 
-        print(
-            f"\nPROCESSING ISSUE: {issue_key}"
+        issue = await run_in_threadpool(
+            fetch_issue_by_key,
+            issue_key
         )
-
-        # ==================================================
-        # FETCH ISSUE
-        # ==================================================
-
-        issue = fetch_issue_by_key(issue_key)
 
         fields = issue.get("fields", {})
 
-        title = fields.get(
-            "summary",
-            ""
-        )
+        title = fields.get("summary", "")
 
         description = extract_text(
-            fields.get(
-                "description",
-                {}
-            )
+            fields.get("description", {})
         )
 
         comments = (
@@ -135,119 +141,102 @@ async def jira_webhook(request: Request):
             .get("comments", [])
         )
 
-        # ==================================================
-        # EXTRACT COMMENTS
-        # ==================================================
-
         all_comments = []
 
         for comment in comments:
 
-            body = comment.get(
-                "body",
-                {}
-            )
-
             comment_text = extract_text(
-                body
+                comment.get("body", {})
             )
 
             if comment_text.strip():
 
-                all_comments.append(
-                    comment_text
-                )
+                all_comments.append(comment_text)
 
-        combined_comments = "\n".join(
-            all_comments
+        combined_comments = "\n".join(all_comments)
+
+        input_content = f"""
+{title}
+{description}
+{combined_comments}
+"""
+
+        input_hash = generate_content_hash(
+            input_content
         )
 
-        # ==================================================
-        # PREVENT INFINITE LOOP
-        # ==================================================
+        print("\nINPUT HASH:", input_hash)
 
-        input_data = (
-            title
-            + description
-            + combined_comments
-        )
-
-        input_hash = hashlib.md5(
-            input_data.encode()
-        ).hexdigest()
-
-        print(
-            f"\nINPUT HASH: {input_hash}"
-        )
-
-        if is_input_processed(
+        should_process = await run_in_threadpool(
+            claim_ticket_for_processing,
             issue_key,
             input_hash
-        ):
+        )
 
-            print(
-                "\nSKIPPING - INPUT UNCHANGED"
-            )
+        if not should_process:
+
+            print("\nSKIPPING - INPUT UNCHANGED")
 
             return {
                 "status": "skipped",
                 "issue": issue_key
             }
 
-        # ==================================================
-        # LANGUAGE DETECTION
-        # ==================================================
+        await update_processing_state(
+            issue_key,
+            "Detecting language and preparing translation",
+            [
+                "Webhook received",
+                "Fetched Jira issue details",
+                "Checked duplicate processing cache"
+            ]
+        )
 
         detected_language = detect_language(
             f"{title} {description}"
         )
 
-        # ==================================================
-        # TRANSLATION
-        # ==================================================
-
-        translated_content = translate_content(
+        translated_content = await run_in_threadpool(
+            translate_content,
             title,
             description
         )
 
-        # ==================================================
-        # COMMENTS SUMMARY
-        # ==================================================
+        await update_processing_state(
+            issue_key,
+            "Generating AI summary with knowledge base context",
+            [
+                "Webhook received",
+                "Fetched Jira issue details",
+                "Checked duplicate processing cache",
+                "Detected language and translated content"
+            ]
+        )
 
         comments_summary = ""
 
         if combined_comments.strip():
 
-            comments_summary = summarize_comments(
+            comments_summary = await run_in_threadpool(
+                summarize_comments,
                 combined_comments
             )
 
-        # ==================================================
-        # AI SUMMARY
-        # ==================================================
-
-        ai_summary = generate_ai_summary(
+        ai_summary = await run_in_threadpool(
+            generate_ai_summary,
             title,
             description,
             combined_comments
         )
 
-        # ==================================================
-        # SENTIMENT
-        # ==================================================
-
-        sentiment = analyze_sentiment(
+        sentiment = await run_in_threadpool(
+            analyze_sentiment,
             title,
             description,
             combined_comments
         )
 
-        # ==================================================
-        # BUILD JIRA ADF CONTENT
-        # ==================================================
-
-        adf_content = build_ai_summary_adf(
+        final_adf = build_ai_summary_adf(
             ai_summary=ai_summary,
             translated_content=translated_content,
             sentiment=sentiment,
@@ -255,22 +244,16 @@ async def jira_webhook(request: Request):
             detected_language=detected_language
         )
 
-        # ==================================================
-        # ADD AI COMMENT
-        # ==================================================
+        print("\nUPDATING JIRA AI FIELD...")
 
-        print("\nADDING AI COMMENT...")
-
-        add_ai_comment(
+        await run_in_threadpool(
+            update_custom_field,
             issue_key,
-            adf_content
+            final_adf
         )
 
-        # ==================================================
-        # SAVE CACHE
-        # ==================================================
-
-        save_processed_input(
+        await run_in_threadpool(
+            save_processed_ticket,
             issue_key,
             input_hash
         )
@@ -280,9 +263,7 @@ async def jira_webhook(request: Request):
             2
         )
 
-        print(
-            f"\nPROCESSING TIME: {total_time} sec"
-        )
+        print(f"\nPROCESSING TIME: {total_time} sec")
 
         logger.info(
             f"Successfully processed {issue_key}"
@@ -294,14 +275,48 @@ async def jira_webhook(request: Request):
             "processing_time": total_time
         }
 
-    except Exception as e:
+    except Exception as error:
 
-        logger.error(str(e))
+        failed_state_updated = False
+
+        if issue_key:
+
+            try:
+
+                await run_in_threadpool(
+                    update_custom_field,
+                    issue_key,
+                    build_failed_adf(error)
+                )
+
+                failed_state_updated = True
+
+            except Exception as update_error:
+
+                logger.error(str(update_error))
+
+        if issue_key and input_hash and not failed_state_updated:
+
+            await run_in_threadpool(
+                clear_processing_ticket,
+                issue_key,
+                input_hash
+            )
+
+        if issue_key and input_hash and failed_state_updated:
+
+            await run_in_threadpool(
+                save_processed_ticket,
+                issue_key,
+                input_hash
+            )
+
+        logger.error(str(error))
 
         print("\nERROR:")
-        print(str(e))
+        print(str(error))
 
         return {
             "status": "failed",
-            "error": str(e)
+            "error": str(error)
         }
