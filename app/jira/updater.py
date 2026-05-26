@@ -22,23 +22,31 @@ def update_custom_field(issue_key, content):
 
     url = f"{JIRA_DOMAIN}/rest/api/3/issue/{issue_key}"
 
+    if isinstance(content, dict):
+
+        field_content = content
+
+    else:
+
+        field_content = {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": str(content)[:30000]
+                        }
+                    ]
+                }
+            ]
+        }
+
     payload = {
         "fields": {
-            CUSTOM_FIELD_ID: {
-                "type": "doc",
-                "version": 1,
-                "content": [
-                    {
-                        "type": "paragraph",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": str(content)[:30000]
-                            }
-                        ]
-                    }
-                ]
-            }
+            CUSTOM_FIELD_ID: field_content
         }
     }
 
