@@ -383,6 +383,8 @@ PROJECT_KEY=MS
 CUSTOM_FIELD_ID=customfield_10119
 
 OLLAMA_MODEL=mistral
+
+OLLAMA_URL=http://localhost:11434/api/generate
 ```
 
 The app also accepts `JIRA_EMAIL` and `JIRA_API_TOKEN` as aliases for `EMAIL` and `API_TOKEN`.

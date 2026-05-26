@@ -183,6 +183,7 @@ def build_failed_adf(error_message):
 
 def build_ai_summary_adf(
     ai_summary,
+    root_cause,
     translated_content,
     sentiment,
     comments_summary,
@@ -202,6 +203,13 @@ def build_ai_summary_adf(
         section(
             "Summary",
             ai_summary
+        )
+    )
+
+    content.extend(
+        section(
+            "Root Cause Analysis",
+            root_cause
         )
     )
 

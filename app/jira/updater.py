@@ -10,7 +10,7 @@ from app.config import (
 )
 
 
-def update_custom_field(issue_key, adf_content):
+def update_custom_field(issue_key, content):
 
     require_settings(
         "JIRA_DOMAIN",
@@ -21,9 +21,31 @@ def update_custom_field(issue_key, adf_content):
 
     url = f"{JIRA_DOMAIN}/rest/api/3/issue/{issue_key}"
 
+    if isinstance(content, dict):
+
+        field_content = content
+
+    else:
+
+        field_content = {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": str(content)[:30000]
+                        }
+                    ]
+                }
+            ]
+        }
+
     payload = {
         "fields": {
-            CUSTOM_FIELD_ID: adf_content
+            CUSTOM_FIELD_ID: field_content
         }
     }
 

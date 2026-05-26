@@ -28,6 +28,9 @@ from app.jira.adf_builder import (
     build_processing_adf
 )
 
+from knowledge_base.root_cause_analyzer import analyze_root_cause
+from knowledge_base.kb_updater import is_ticket_resolved, save_ticket_to_knowledge_base
+
 app = FastAPI()
 
 initialize_database()
@@ -236,8 +239,28 @@ async def jira_webhook(request: Request):
             combined_comments
         )
 
+        await update_processing_state(
+            issue_key,
+            "Analyzing root cause",
+            [
+                "Webhook received",
+                "Fetched Jira issue details",
+                "Checked duplicate processing cache",
+                "Detected language and translated content",
+                "Generated AI summary and sentiment"
+            ]
+        )
+
+        root_cause = await run_in_threadpool(
+            analyze_root_cause,
+            title,
+            description,
+            translated_content
+        )
+
         final_adf = build_ai_summary_adf(
             ai_summary=ai_summary,
+            root_cause=root_cause,
             translated_content=translated_content,
             sentiment=sentiment,
             comments_summary=comments_summary,
@@ -251,6 +274,47 @@ async def jira_webhook(request: Request):
             issue_key,
             final_adf
         )
+
+        ticket_resolved = is_ticket_resolved(fields)
+
+        kb_saved = False
+
+        if ticket_resolved:
+
+            print(f"\nTICKET IS RESOLVED - saving to knowledge base...")
+
+            # Resolved tickets become future KB examples after cleanup/quality checks.
+            kb_saved = await run_in_threadpool(
+                save_ticket_to_knowledge_base,
+                issue_key,
+                title,
+                description,
+                translated_content,
+                comments_summary,
+                combined_comments,
+                root_cause,
+                sentiment
+            )
+
+        else:
+
+            print(
+                "\nTICKET NOT RESOLVED - skipping KB save"
+            )
+
+        if ticket_resolved and not kb_saved:
+
+            await run_in_threadpool(
+                clear_processing_ticket,
+                issue_key,
+                input_hash
+            )
+
+            return {
+                "status": "failed",
+                "issue": issue_key,
+                "error": "Ticket resolved but knowledge base save failed"
+            }
 
         await run_in_threadpool(
             save_processed_ticket,
@@ -272,12 +336,11 @@ async def jira_webhook(request: Request):
         return {
             "status": "success",
             "issue": issue_key,
-            "processing_time": total_time
+            "processing_time": total_time,
+            "kb_saved": kb_saved
         }
 
     except Exception as error:
-
-        failed_state_updated = False
 
         if issue_key:
 
@@ -289,24 +352,14 @@ async def jira_webhook(request: Request):
                     build_failed_adf(error)
                 )
 
-                failed_state_updated = True
-
             except Exception as update_error:
 
                 logger.error(str(update_error))
 
-        if issue_key and input_hash and not failed_state_updated:
+        if issue_key and input_hash:
 
             await run_in_threadpool(
                 clear_processing_ticket,
-                issue_key,
-                input_hash
-            )
-
-        if issue_key and input_hash and failed_state_updated:
-
-            await run_in_threadpool(
-                save_processed_ticket,
                 issue_key,
                 input_hash
             )
