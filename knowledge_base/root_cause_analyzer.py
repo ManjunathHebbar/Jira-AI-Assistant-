@@ -1,12 +1,11 @@
 import requests
+from app.config import OLLAMA_MODEL, OLLAMA_URL
 from knowledge_base.vector_store import search_knowledge_base
 
 # ==========================================
 # CONFIG
 # ==========================================
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3"
 KB_SIMILARITY_THRESHOLD = 3  # min chars to treat KB result as valid
 
 
@@ -25,6 +24,7 @@ def analyze_root_cause(title: str, description: str) -> str:
 
     kb_context = search_knowledge_base(query)
 
+    # Prefer grounded root-cause analysis when similar resolved tickets exist.
     if kb_context and len(kb_context.strip()) > KB_SIMILARITY_THRESHOLD:
 
         print("\nROOT CAUSE: Found relevant KB entries — using KB context")
@@ -53,6 +53,7 @@ Root Cause:"""
 
         print("\nROOT CAUSE: KB empty or no match — falling back to Ollama")
 
+        # Fall back to model-only reasoning when KB has no usable match.
         prompt = f"""You are a Jira support engineer analyzing a bug report.
 
 === CURRENT ISSUE ===
@@ -79,6 +80,7 @@ def _call_ollama(prompt: str) -> str:
 
     try:
 
+        # Use the same Ollama endpoint/model configured for the rest of the app.
         response = requests.post(
             OLLAMA_URL,
             json={

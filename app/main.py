@@ -346,16 +346,21 @@ async def jira_webhook(request: Request):
 
         ticket_resolved = is_ticket_resolved(fields)
 
+        kb_saved = False
+
         if ticket_resolved:
 
             print(f"\nTICKET IS RESOLVED — saving to knowledge base...")
 
-            await run_in_threadpool(
+            # Resolved tickets become future KB examples after cleanup/quality checks.
+            kb_saved = await run_in_threadpool(
                 save_ticket_to_knowledge_base,
                 issue_key,
                 title,
                 description,
+                translated_content,
                 comments_summary,
+                combined_comments,
                 root_cause,
                 sentiment
             )
@@ -389,7 +394,7 @@ async def jira_webhook(request: Request):
             "status": "success",
             "issue": issue_key,
             "processing_time": total_time,
-            "kb_saved": ticket_resolved
+            "kb_saved": kb_saved
         }
 
     except Exception as e:
