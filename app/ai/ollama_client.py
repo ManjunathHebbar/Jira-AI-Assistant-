@@ -14,13 +14,23 @@ def ask_ollama(prompt):
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+            options={
+                "num_predict": 1024,  # max tokens to generate
+            }
         )
 
-        return response["message"]["content"]
+        # ollama library returns an object, not a dict
+        return response.message.content
+
+    except ollama.ResponseError as e:
+
+        print(f"Ollama response error: {e.status_code} — {e.error}")
+
+        return "AI generation failed"
 
     except Exception as e:
 
-        print("Ollama Error:", e)
+        print("Ollama error:", e)
 
         return "AI generation failed"

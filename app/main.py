@@ -22,6 +22,9 @@ from app.cache.sqlite_cache import (
     save_processed_ticket
 )
 
+from knowledge_base.root_cause_analyzer import analyze_root_cause
+from knowledge_base.kb_updater import is_ticket_resolved, save_ticket_to_knowledge_base
+
 app = FastAPI()
 
 initialize_database()
@@ -253,6 +256,18 @@ async def jira_webhook(request: Request):
         )
 
         # ==========================================
+        # ROOT CAUSE ANALYSIS
+        # ==========================================
+
+        print("\nANALYZING ROOT CAUSE...")
+
+        root_cause = await run_in_threadpool(
+            analyze_root_cause,
+            title,
+            description
+        )
+
+        # ==========================================
         # FINAL CONTENT
         # ==========================================
 
@@ -261,6 +276,12 @@ async def jira_webhook(request: Request):
 ==================================================
 
 {ai_summary}
+
+==================================================
+🔍 ROOT CAUSE ANALYSIS
+==================================================
+
+{root_cause}
 
 ==================================================
 🌍 ENGLISH TITLE & DESCRIPTION
@@ -319,6 +340,36 @@ async def jira_webhook(request: Request):
             input_hash
         )
 
+        # ==========================================
+        # SAVE TO KNOWLEDGE BASE IF RESOLVED
+        # ==========================================
+
+        ticket_resolved = is_ticket_resolved(fields)
+
+        if ticket_resolved:
+
+            print(f"\nTICKET IS RESOLVED — saving to knowledge base...")
+
+            await run_in_threadpool(
+                save_ticket_to_knowledge_base,
+                issue_key,
+                title,
+                description,
+                comments_summary,
+                root_cause,
+                sentiment
+            )
+
+        else:
+
+            print(
+                "\nTICKET NOT RESOLVED — skipping KB save"
+            )
+
+        # ==========================================
+        # DONE
+        # ==========================================
+
         end_time = time.time()
 
         total_time = round(
@@ -337,7 +388,8 @@ async def jira_webhook(request: Request):
         return {
             "status": "success",
             "issue": issue_key,
-            "processing_time": total_time
+            "processing_time": total_time,
+            "kb_saved": ticket_resolved
         }
 
     except Exception as e:
