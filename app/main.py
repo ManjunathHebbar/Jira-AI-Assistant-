@@ -158,10 +158,17 @@ async def jira_webhook(request: Request):
 
         combined_comments = "\n".join(all_comments)
 
+        issue_status = (
+            fields
+            .get("status", {})
+            .get("name", "")
+        )
+
         input_content = f"""
 {title}
 {description}
 {combined_comments}
+{issue_status}
 """
 
         input_hash = generate_content_hash(

@@ -8,7 +8,7 @@ from knowledge_base.vector_store import get_collection, get_model
 # ==========================================
 
 # Jira status names that mean "done" — adjust to match your workflow
-RESOLVED_STATUSES = {"done", "closed", "resolved", "complete", "completed"}
+RESOLVED_STATUSES = {"done", "closed", "resolved", "complete", "completed", "DONE"}
 
 SNAPSHOT_PATH = Path(__file__).resolve().parent / "resolved_snapshots"
 NEAR_DUPLICATE_DISTANCE_THRESHOLD = 0.15
