@@ -67,7 +67,6 @@ Long Jira discussions become:
 - concise
 - actionable
 - developer-friendly
-- handoff-ready
 
 ---
 
@@ -75,11 +74,9 @@ Long Jira discussions become:
 
 Detects customer tone:
 
-- Positive
-- Neutral
+- Calm
 - Frustrated
-- Escalated
-- Angry
+- Escalating
 
 ---
 
